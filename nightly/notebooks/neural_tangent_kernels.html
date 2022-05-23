@@ -126,7 +126,7 @@
               
               
                 <div class="version">
-                  <a href='https://pytorch.org/functorch/versions.html'>nightly (0.2.0a0+386a541) &#x25BC</a>
+                  <a href='https://pytorch.org/functorch/versions.html'>nightly (0.3.0a0+76976db) &#x25BC</a>
                 </div>
               
             
@@ -442,9 +442,9 @@
     <span class="k">if</span> <span class="n">compute</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">result</span>
     <span class="k">if</span> <span class="n">compute</span> <span class="o">==</span> <span class="s1">&#39;trace&#39;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;NMKK-&gt;NM&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;NMKK-&gt;NM&#39;</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">compute</span> <span class="o">==</span> <span class="s1">&#39;diagonal&#39;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;NMKK-&gt;NMK&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;NMKK-&gt;NMK&#39;</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

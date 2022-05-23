@@ -124,7 +124,7 @@
               
               
                 <div class="version">
-                  <a href='https://pytorch.org/functorch/versions.html'>nightly (0.2.0a0+386a541) &#x25BC</a>
+                  <a href='https://pytorch.org/functorch/versions.html'>nightly (0.3.0a0+76976db) &#x25BC</a>
                 </div>
               
             
@@ -277,7 +277,6 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Torch scripted model.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">fx_g</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="ow">in</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">aten</span><span class="o">.</span><span class="n">new_zeros</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">aten</span><span class="o">.</span><span class="n">new_empty</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="p">[]:</span>
@@ -322,11 +321,11 @@
 
 <span class="k">def</span> <span class="nf">tensorexpr_compile</span><span class="p">(</span><span class="n">fx_module</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">,</span> <span class="n">flat_args</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Compiles the given fx_module using TensorExpr Kernel&quot;&quot;&quot;</span>
-    <span class="n">inp_devices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">i</span><span class="o">.</span><span class="n">device</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">flat_args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)])</span>
+    <span class="n">inp_devices</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="o">.</span><span class="n">device</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">flat_args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)}</span>
     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">inp_devices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
     <span class="n">inp_device</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">inp_devices</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">inputs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="n">output_refs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">output_refs</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">fx_module</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span><span class="p">:</span>
             <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
@@ -501,23 +500,28 @@
 
 
 <span class="n">aten</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">aten</span>
-<span class="n">default_decompositions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">detach</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">gelu_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">_log_softmax_backward_data</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">leaky_relu_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">sigmoid_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">threshold_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">hardtanh_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">hardsigmoid_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">hardswish_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">tanh_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">silu_backward</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">cudnn_batch_norm</span><span class="p">,</span>
-        <span class="n">aten</span><span class="o">.</span><span class="n">cudnn_batch_norm_backward</span><span class="p">,</span>
-    <span class="p">]</span>
-<span class="p">)</span>
+<span class="n">default_decompositions</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">detach</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">gelu_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">leaky_relu_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">sigmoid_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">threshold_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardtanh_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardsigmoid_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardswish_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">tanh_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">silu_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">elu_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">cudnn_batch_norm</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">cudnn_batch_norm_backward</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">masked_fill</span><span class="o">.</span><span class="n">Scalar</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">masked_fill</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">elu</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">leaky_relu</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardtanh</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardswish</span><span class="p">,</span>
+    <span class="n">aten</span><span class="o">.</span><span class="n">hardsigmoid</span><span class="p">,</span>
+<span class="p">}</span>
 <span class="n">default_decompositions</span> <span class="o">=</span> <span class="n">get_decompositions</span><span class="p">(</span><span class="n">default_decompositions</span><span class="p">)</span>
 
 
