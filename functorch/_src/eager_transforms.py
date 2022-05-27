@@ -1330,8 +1330,4 @@ _register_jit_decomposition(torch.ops.aten.log_sigmoid_forward.default)
 _register_jit_decomposition(torch.ops.aten.binary_cross_entropy_backward.default)
 _register_jit_decomposition(torch.ops.aten.binary_cross_entropy.default)
 _register_jit_decomposition(torch.ops.aten.native_layer_norm_backward.default)
-<<<<<<< HEAD
-_register_jit_decomposition_bypass_script(torch.ops.aten.addr.default)
-=======
 _register_python_decomposition_vmap(torch.ops.aten.addr.default)
->>>>>>> 4f69429770e7e62e4ec9caed8a30f81c3460ff97
