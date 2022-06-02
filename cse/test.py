@@ -89,14 +89,6 @@ from cse import modify
 #     print("a,b", a,b)
 #     return a+b
 
-# def f(x):
-#     a = x.cos()
-#     b = x.sin()
-#     c = x.square()
-#     d = a+b+c
-#     e = a+b
-#     f = e+c
-#     return f
 
 def f(x):
     a = x.sum(dim = 1)
@@ -105,28 +97,6 @@ def f(x):
     d = x.sum()
     print(a,b,c,d)
     return a+b+c+d
-
-# def f(x):
-#     a = x.cos()
-#     b = x.cos()
-#     c = a+a
-#     d = b+b
-#     return c+d
-
-# def f(x):
-#     a = x.sum()
-#     b = x.sum()
-#     c = x.sum()
-#     d = x.sum()
-#     print(a,b,c,d)
-#     return a+b+c+d
-
-# def f(x):
-#     a = x+1
-#     b = x+a
-#     a = x
-#     d = x+a
-#     return b + d
 
     
 t = torch.randn(2,2)

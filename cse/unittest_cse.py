@@ -12,28 +12,40 @@ from torch.fx import symbolic_trace
 from cse import modify
 import unittest
 
-
+# check if the CSE modified graph of f has delta less nodes, and do not reduce the number of nodes further on a second pass.
+# delta is an integer >= -1. If delta = -1, only check if the new graph
+#   has less or equal number of nodes
+#  
 def check(f, t, delta):
     fx_g = make_fx(f)(t)
     new_graph = modify(fx_g.graph)
     new_g = fx.GraphModule({},new_graph)
+
+    # the number of nodes decrease/ or stay the same
     old_num_nodes = len(fx_g.graph.nodes)
     new_num_nodes = len(new_graph.nodes)
     if delta == -1:
         assert  old_num_nodes >= new_num_nodes, f"number of nodes increased {old_num_nodes}, {new_num_nodes}"
     else:
         assert  old_num_nodes == new_num_nodes+delta, f"number of nodes not the same {old_num_nodes - delta}, {new_num_nodes}"
+    
+    # a second pass should not reduce more nodes
     pass_2_graph = modify(new_graph)
-    pass_2_num_nodes = len(pass_2_graph)
+    pass_2_num_nodes = len(pass_2_graph.nodes)
     assert pass_2_num_nodes == new_num_nodes, f"second pass graph has less node {pass_2_num_nodes}, {new_num_nodes}"
+
+    # check correctness
     true_result = fx_g(t)
     our_result = new_g(t)
-    assert torch.all( true_result == our_result ), f"results are different {true_result}, {our_result}" #check results are the same
+    if true_result is None: # both return None
+        assert our_result is None, f"true result is None, CSE result is {our_result}"
+    else: # results returned are the same
+        assert torch.all( true_result == our_result ), f"results are different {true_result}, {our_result}" #check results are the same
 
 
 class NoChangeTestCase(unittest.TestCase):
 
-    def test_nochange_1(self):
+    def test_nochange(self):
         def f(x):
             a = x+1
             b = x+a
@@ -45,16 +57,6 @@ class NoChangeTestCase(unittest.TestCase):
 
 class ReduceTestCase(unittest.TestCase):
 
-    def test_1(self):
-        def f(x):
-            a = x.sum()
-            b = x.sum()
-            c = x.sum()
-            d = x.sum()
-            return a+b+c+d
-        t = torch.randn(2,2)
-        check(f,t, 3)
-
     def test_immutable_list_type(self):
         def f(x):
             a = x.sum(dim = 1)
@@ -65,7 +67,7 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 2)
 
-    def test_3(self):
+    def test_simple(self):
         def f(x):
             a = x.cos()
             b = x.cos()
@@ -75,19 +77,7 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 2)
 
-    def test_4(self):
-        def f(x):
-            a = x.cos()
-            b = x.sin()
-            c = x.square()
-            d = a+b+c
-            e = a+b
-            f = e+c
-            return f
-        t = torch.randn(2,2)
-        check(f,t, 2)
-
-    def test_5(self):
+    def test_simple_2(self):
         def f(x):
             a = x.cos().sin()
             b = x.cos().sin()
@@ -96,6 +86,34 @@ class ReduceTestCase(unittest.TestCase):
             return c+d
         t = torch.randn(1)
         check(f,t, 3)
+
+    def test_simple_multiple_same_ops(self):
+        def f(x):
+            a = x.sum()
+            b = x.sum()
+            c = x.sum()
+            d = x.sum()
+            return a+b+c+d
+        t = torch.randn(2,2)
+        check(f,t, 3)
+
+    # TODO: change to nested immutable list
+    def test_nested_immutable_list_type(self):
+        def f(x):
+            a = x.sum(dim = 1)
+            b = x.sum(dim = 1)
+            c = x.sum()
+            d = x.sum()
+            return a+b+c+d
+        t = torch.randn(2,2)
+        check(f,t, 2)
+
+    def test_empty(self):
+        def f(x):
+            pass
+        t = torch.randn(2,2)
+        check(f,t, 0)
+
 
     
 
