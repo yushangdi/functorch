@@ -16,7 +16,7 @@ import unittest
 # delta is an integer >= -1. If delta = -1, only check if the new graph
 #   has less or equal number of nodes
 #  
-def check(f, t, delta):
+def check(f, t, delta, check_val = True):
     fx_g = make_fx(f)(t)
     new_graph = modify(fx_g.graph)
     new_g = fx.GraphModule(fx_g, new_graph)
@@ -35,12 +35,13 @@ def check(f, t, delta):
     assert pass_2_num_nodes == new_num_nodes, f"second pass graph has less node {pass_2_num_nodes}, {new_num_nodes}"
 
     # check correctness
-    true_result = fx_g(t)
-    our_result = new_g(t)
-    if true_result is None: # both return None
-        assert our_result is None, f"true result is None, CSE result is {our_result}"
-    else: # results returned are the same
-        assert torch.all( true_result == our_result ), f"results are different {true_result}, {our_result}" #check results are the same
+    if check_val:
+        true_result = fx_g(t)
+        our_result = new_g(t)
+        if true_result is None: # both return None
+            assert our_result is None, f"true result is None, CSE result is {our_result}"
+        else: # results returned are the same
+            assert torch.all( true_result == our_result ), f"results are different {true_result}, {our_result}" #check results are the same
 
 
 class NoChangeTestCase(unittest.TestCase):
@@ -131,13 +132,24 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 1)
 
-    def test_rand(self):
+    def test_rand_like(self):
         def f(x):
             a = torch.rand_like(x)
             b = torch.rand_like(x)
             return a + b
         t = torch.randn(2,2)
-        check(f,t, 1)
+        check(f,t, 0, check_val = False)
+
+    def test_rand_n(self):
+        def f(x):
+            g_cpu = torch.Generator()
+            g_cpu.manual_seed(2147483647)
+            a = torch.randn(4, generator = g_cpu)
+            b = torch.randn(4, generator = g_cpu)
+            return a+b
+        t = torch.randn(2,2)
+        check(f,t, 0)
+
     
 
 if __name__ == '__main__':

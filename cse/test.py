@@ -81,21 +81,20 @@ from cse import modify
 #     d = a+b
 #     return c+d
 
-# def f(x):
-#     g_cpu = torch.Generator()
-#     g_cpu.manual_seed(2147483647)
-#     a = torch.randn(4, generator = g_cpu)
-#     b = torch.randn(4, generator = g_cpu)
-#     print("a,b", a,b)
-#     return a+b
-
-# guard againt rand
 def f(x):
-    a = torch.ones_like(x)
-    b = torch.ones_like(x)
-    print(a,b)
-    print()
-    return a + b
+    g_cpu = torch.Generator()
+    g_cpu.manual_seed(2147483647)
+    a = torch.randn(4, generator = g_cpu)
+    b = torch.randn(4, generator = g_cpu)
+    print("a,b", a,b)
+    return a+b
+
+
+# def f(x):
+#     a = torch.ones_like(x)
+#     b = torch.rand_like(x)
+#     print(a,b)
+#     return a + b
 
     
 t = torch.randn(2,2)

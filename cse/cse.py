@@ -8,6 +8,9 @@ from torch.fx.node import Node
 import hashlib
 import json
 
+aten = torch.ops.aten
+rand_ops = [aten.rand_like, aten.rand, aten.randint, aten.randn]
+
 def check_args(new_args, old_args, env):
     if (len(new_args)!=len(old_args)):
         return False
@@ -75,7 +78,8 @@ def modify(fx_g: torch.fx.graph.Graph):
     env = {} # map from node in the old graph to node in the new graph
     hash_env = {} # map from the computatio result to a node in the new graph
     for n in fx_g.nodes:
-        if n.op == 'placeholder' or n.op == 'output' or n.op == 'get_attr': # != "call_function"
+        # do not CSE away random operations
+        if n.op == 'placeholder' or n.op == 'output' or n.op == 'get_attr' or n.target in rand_ops: # != "call_function"
             new_node = new_graph.node_copy(n, lambda x: env[x])
             env[n] = new_node
         else: #n.op == 'call_function', we should never see n.op == 'call_module' or n.op == 'call_method'
