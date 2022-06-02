@@ -74,11 +74,11 @@ def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: 
 # The call nodes (call_function, call_module, call_method) are hashed to check if they
 # have an equivalent node in the graph. If so, this node will not be copied, and a mapping
 # to the duplicated node is stored in env
-def modify(fx_g: torch.fx.graph_module.GraphModule):
+def modify(fx_g: torch.fx.graph.Graph):
     new_graph = fx.Graph()
     env = {} # map from node in the old graph to node in the new graph
     hash_env = {} # map from the computatio result to a node in the new graph
-    for n in fx_g.graph.nodes:
+    for n in fx_g.nodes:
         if n.op == 'placeholder' or n.op == 'output' or n.op == 'get_attr': # != "call_function"
             new_node = new_graph.node_copy(n, lambda x: env[x])
             env[n] = new_node
