@@ -14,22 +14,25 @@ import json
 # for torch.fx.immutable_collections.immutable_dict, sort the disctionary keyss and dump to a json. Then
 # use the hashlib.md5 to get a encoded version of the json. Finally, hash the code
 def fx_hash(arg):
+    # TODO: turn dict into key-value pairs
     if isinstance(arg, list): # torch.fx.immutable_collections.immutable_list is also a list
         arg = tuple(arg)
+    elif isinstance(arg, dict): # torch.fx.immutable_collections.immutable_dict is a dict
+        arg = tuple(sorted(arg.items()))
     try:
-        return hash(arg)
+        return hash(arg) # cannot hash object?
     except TypeError:
-        if(isinstance(arg, tuple)):
+        if(isinstance(arg, tuple)): #TODO: remove parenthesis
             # https://stackoverflow.com/questions/3054449/how-to-properly-define-hash-function-for-a-list-of-objects
             hashCode = 1
             for ele in arg:
                 hashCode = 31*hashCode + (0 if ele is None else fx_hash(ele)) #TODO: but this works for set, but not for ordered list
             return hashCode
-        if(isinstance(arg, torch.fx.immutable_collections.immutable_dict)):
-            dhash = hashlib.md5()
-            encoded = json.dumps(arg, sort_keys=True).encode()
-            dhash.update(encoded)
-            return hash(dhash.hexdigest())
+        # if(isinstance(arg, torch.fx.immutable_collections.immutable_dict)):
+        #     dhash = hashlib.md5()
+        #     encoded = json.dumps(arg, sort_keys=True).encode()
+        #     dhash.update(encoded)
+        #     return hash(dhash.hexdigest())
         else:
             raise TypeError
 
@@ -79,7 +82,7 @@ def modify(fx_g: torch.fx.graph_module.GraphModule):
         if n.op == 'placeholder' or n.op == 'output' or n.op == 'get_attr': # != "call_function"
             new_node = new_graph.node_copy(n, lambda x: env[x])
             env[n] = new_node
-        else: #n.op == 'call_function' or n.op == 'call_module' or n.op == 'call_method'
+        else: #n.op == 'call_function', we should never see n.op == 'call_module' or n.op == 'call_method'
             # print("======")
             # print(n.target)
             # print(n.args)
