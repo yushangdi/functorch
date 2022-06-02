@@ -90,15 +90,20 @@ from cse import modify
 #     return a+b
 
 
+# def f(x):
+#     a = torch.cat((x, x), dim = 1, my = 1)
+#     b = torch.cat((x, x), dim = 1)
+#     return a+b
+
 def f(x):
-    a = torch.cat((x, x))
-    b = torch.cat((x, x))
-    return a+b
+    a = torch.rand_like(x)
+    b = torch.rand_like(x)
+    return a + b
     
 t = torch.randn(2,2)
 fx_g = make_fx(f)(t)
 new_graph = modify(fx_g.graph)
-new_g = fx.GraphModule({"_tensor_constant0":torch.Tensor},new_graph)
+new_g = fx.GraphModule(fx_g,new_graph)
 
 print(fx_g.graph)
 print(new_graph)

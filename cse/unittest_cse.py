@@ -115,7 +115,6 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 3)
 
-    # TODO: change to list nested in immutable list
     def test_nested_immutable_list_type(self):
         def f(x):
             a = torch.cat((x, x))

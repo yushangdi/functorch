@@ -9,7 +9,6 @@ import hashlib
 import json
 
 
-#TODO: another way: recursively change immutable_list to tuple? but how about dict nested in list?
 # hash arg and return a number
 # if arg is a list, cast to tuple which is a hashable type
 # for nested unhashable types, recursively hash each element and combine the hashcode of each element
@@ -45,7 +44,6 @@ def check_args(new_args, old_args, env):
         return False
     for i in range(len(new_args)):
         if (new_args[i] != old_args[i]):
-            #TODO: add check dictionary
             if isinstance(new_args[i], list) or isinstance(new_args[i], tuple):
                 if not check_args(new_args[i], old_args[i], env):
                     return False
@@ -54,6 +52,27 @@ def check_args(new_args, old_args, env):
             elif (not old_args[i] in env):
                 return False
             elif new_args[i] != env[old_args[i]]:
+                return False
+    return True
+
+def check_kwargs(new_args, old_args, env):
+    if (len(new_args)!=len(old_args)):
+        return False
+    for k,v in new_args.items():
+        if not k in old_args: 
+            return False
+        old_v = old_args[k]
+        if type(v) != type(old_v):
+            return False
+        if (v != old_v):
+            if isinstance(v, list) or isinstance(v, tuple):
+                if not check_args(v, old_v, env):
+                    return False
+            elif not isinstance(v, Node):
+                return False
+            elif (not old_v in env):
+                return False
+            elif v != env[old_v]:
                 return False
     return True
 
@@ -69,7 +88,7 @@ def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: 
         return False
     if not check_args(new_node.args, old_node.args, env):
         return False
-    if not check_args(new_node.kwargs, old_node.kwargs, env):
+    if not check_kwargs(new_node.kwargs, old_node.kwargs, env):
         return False
     return True
 
@@ -90,40 +109,45 @@ def modify(fx_g: torch.fx.graph.Graph):
             env[n] = new_node
         else: #n.op == 'call_function', we should never see n.op == 'call_module' or n.op == 'call_method'
             # print("======")
-            # print(n.target)
-            # print(n.args)
-            # print(n.kwargs)
+            print(n.target)
+            print(n.args)
+            print(n.kwargs)
             # print(n.name) # e.g. cos_1
             # try: 
 
-            # convert to list because tuple type is not mutable
-            args = list(n.args)
-            kwargs = list(n.kwargs)
-            def substitute(arg_list):
+            
+            args = list(n.args) # convert to list because tuple type is not mutable
+            kwargs = n.kwargs
+            def substitute_list(arg_list):
                 for i in range(len(arg_list)):
                     # change the args to their mapping in env (if exist)
                     if isinstance(arg_list[i], torch.fx.node.Node) and arg_list[i] in env:
                         arg_list[i] = env[arg_list[i]]
                     # recursively check each member of a list
                     # if the element is an immutable_list, we cast it to a mutable list, then cast back to tuple for hash
-                    # TODO: do we need to cast back?
                     elif isinstance(arg_list[i], list) or isinstance(arg_list[i], tuple):
                         arg_list[i] = list(arg_list[i])
-                        substitute(arg_list[i])
+                        substitute_list(arg_list[i])
                         arg_list[i] = tuple(arg_list[i])
-                    # elif isinstance(arg_list[i], list):
-                    #     substitute(arg_list[i])
-                    # TODO: add support to immutable_dict
-                    # elif isinstance(arg, dict): # torch.fx.immutable_collections.immutable_dict is a dict
-                    #     arg = tuple(sorted(arg.items()))
 
-            # for i in range(len(kwargs)):
-            #     if isinstance(kwargs[i], torch.fx.node.Node) and kwargs[i] in env:
-            #         kwargs[i] = env[kwargs[i]]
-            substitute(args)
-            substitute(kwargs)
-            args = tuple(args)
-            kwargs = tuple(kwargs)
+            def substitute_dict(kwarg_dict):
+                for k,v in kwarg_dict.items():
+                    # change the args to their mapping in env (if exist)
+                    if isinstance(v, torch.fx.node.Node) and v in env:
+                        kwarg_dict[k] = env[v]
+                    elif isinstance(v, list) or isinstance(v, tuple):
+                        v = list(v)
+                        substitute_list(v)
+                        kwarg_dict[k] = tuple(v)
+                    elif isinstance(v, dict):
+                        v = dict(v)
+                        substitute_dict(v)
+                        kwarg_dict[k] = tuple(sorted(v.items()))
+
+            substitute_list(args)
+            substitute_dict(kwargs)
+            args = args
+            kwargs = kwargs
 
             
             # hash args to a number
@@ -135,11 +159,6 @@ def modify(fx_g: torch.fx.graph.Graph):
             if hash_val in hash_env and check_same(hash_env[hash_val], n, env): 
                 env[n] = hash_env[hash_val]
                 continue
-            # except TypeError: # TODO: add try_catch for robustness? default to not copy when there's a type problem
-            #     print("WARNING: TypeError: {}. Node not checked for CSE".format(n))
-            #     new_node = new_graph.node_copy(n, lambda x: env[x])
-            #     env[n] = new_node #maybe redundant?
-            #     continue
            
             new_node = new_graph.node_copy(n, lambda x: env[x])
             hash_env[hash_val] = new_node
