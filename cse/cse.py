@@ -8,37 +8,6 @@ from torch.fx.node import Node
 import hashlib
 import json
 
-
-# hash arg and return a number
-# if arg is a list, cast to tuple which is a hashable type
-# for nested unhashable types, recursively hash each element and combine the hashcode of each element
-# for torch.fx.immutable_collections.immutable_dict, sort the disctionary keyss and dump to a json. Then
-# use the hashlib.md5 to get a encoded version of the json. Finally, hash the code
-def fx_hash(arg):
-    # TODO: turn dict into key-value pairs
-    if isinstance(arg, list): # torch.fx.immutable_collections.immutable_list is also a list
-        arg = tuple(arg)
-    elif isinstance(arg, dict): # torch.fx.immutable_collections.immutable_dict is a dict
-        arg = tuple(sorted(arg.items()))
-    try:
-        return hash(arg) # cannot hash object?
-    except TypeError:
-        if(isinstance(arg, tuple)): #TODO: remove parenthesis
-            # https://stackoverflow.com/questions/3054449/how-to-properly-define-hash-function-for-a-list-of-objects
-            hashCode = 1
-            for ele in arg:
-                hashCode = 31*hashCode + (0 if ele is None else fx_hash(ele)) #TODO: but this works for set, but not for ordered list
-            return hashCode
-        # if(isinstance(arg, torch.fx.immutable_collections.immutable_dict)):
-        #     dhash = hashlib.md5()
-        #     encoded = json.dumps(arg, sort_keys=True).encode()
-        #     dhash.update(encoded)
-        #     return hash(dhash.hexdigest())
-        else:
-            raise TypeError
-
-
-
 def check_args(new_args, old_args, env):
     if (len(new_args)!=len(old_args)):
         return False
@@ -83,6 +52,8 @@ def check_kwargs(new_args, old_args, env):
 #    if the old element map to the new element in env. 
 # essentially the following sementic with a more sophisticated implementtation of ==
 #     node.target == n.target and node.args == n.args and node.kwargs == n.kwargs
+# Note for args and kwargs with nested list or nested dict, we need to check each member
+# recursively
 def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: dict):
     if (new_node.target != old_node.target):
         return False
@@ -109,27 +80,36 @@ def modify(fx_g: torch.fx.graph.Graph):
             env[n] = new_node
         else: #n.op == 'call_function', we should never see n.op == 'call_module' or n.op == 'call_method'
             # print("======")
-            print(n.target)
-            print(n.args)
-            print(n.kwargs)
-            # print(n.name) # e.g. cos_1
-            # try: 
+            # print(n.target)
+            # print(n.args)
+            # print(n.kwargs)
 
-            
-            args = list(n.args) # convert to list because tuple type is not mutable
-            kwargs = n.kwargs
+            # convert to mutable types for substitution
+            args = list(n.args) 
+            kwargs = dict(n.kwargs)
+
+            # substitute members of a list to its mapping in env if exists
+            # the subsitution is recursive for nested lists.
+            # change unhashable types such as list and dictionary to tuples.
             def substitute_list(arg_list):
                 for i in range(len(arg_list)):
+                    v = arg_list[i]
                     # change the args to their mapping in env (if exist)
-                    if isinstance(arg_list[i], torch.fx.node.Node) and arg_list[i] in env:
-                        arg_list[i] = env[arg_list[i]]
+                    if isinstance(v, torch.fx.node.Node) and v in env:
+                        arg_list[i] = env[v]
                     # recursively check each member of a list
                     # if the element is an immutable_list, we cast it to a mutable list, then cast back to tuple for hash
-                    elif isinstance(arg_list[i], list) or isinstance(arg_list[i], tuple):
-                        arg_list[i] = list(arg_list[i])
-                        substitute_list(arg_list[i])
-                        arg_list[i] = tuple(arg_list[i])
+                    elif isinstance(v, list) or isinstance(v, tuple):
+                        v = list(v)
+                        substitute_list(v)
+                        arg_list[i] = tuple(v)
+                    elif isinstance(v, dict):
+                        v = dict(v)
+                        substitute_dict(v)
+                        arg_list[i] = tuple(sorted(v))
 
+            # substitute items of a dictionary to its mapping in env if exists
+            # the subsitution is recursive for nested dictionary or list-type items
             def substitute_dict(kwarg_dict):
                 for k,v in kwarg_dict.items():
                     # change the args to their mapping in env (if exist)
@@ -146,16 +126,17 @@ def modify(fx_g: torch.fx.graph.Graph):
 
             substitute_list(args)
             substitute_dict(kwargs)
-            args = args
-            kwargs = kwargs
-
+            args = tuple(args)
+            kwargs = tuple(sorted(kwargs))
             
-            # hash args to a number
-            hash_arg = fx_hash((args, kwargs))
+            # hash substituted args to a number
+            hash_arg = hash((args, kwargs))
             hash_val = (n.target, hash_arg)
 
             # check if a node can be eliminated. check both hash and node to avoid hash collision problem
-            # TODO: if node collision happens, only one set of nodes are eliminated
+            # if hash collision happens, only one set of equivalent nodes are eliminated
+            # e.g. if hash(node1)=hash(node2) = hash(node3)=hash(node4), but node1=node2 != node3=node4, 
+            # node 2 will be eliminated, but node 4 will not. 
             if hash_val in hash_env and check_same(hash_env[hash_val], n, env): 
                 env[n] = hash_env[hash_val]
                 continue
@@ -165,3 +146,28 @@ def modify(fx_g: torch.fx.graph.Graph):
             env[n] = new_node
             
     return new_graph
+
+
+
+
+
+
+# hash arg and return a number
+# if arg is a list, cast to tuple which is a hashable type
+# for nested unhashable types, recursively hash each element and combine the hashcode of each element
+# def fx_hash(arg):
+#     if isinstance(arg, list): # torch.fx.immutable_collections.immutable_list is also a list
+#         arg = tuple(arg)
+#     elif isinstance(arg, dict): # torch.fx.immutable_collections.immutable_dict is a dict
+#         arg = tuple(sorted(arg.items()))
+#     try:
+#         return hash(arg)
+#     except TypeError:
+#         if(isinstance(arg, tuple)): #TODO: remove parenthesis
+#             # https://stackoverflow.com/questions/3054449/how-to-properly-define-hash-function-for-a-list-of-objects
+#             hashCode = 1
+#             for ele in arg:
+#                 hashCode = 31*hashCode + (0 if ele is None else fx_hash(ele)) #TODO: but this works for set, but not for ordered list
+#             return hashCode
+#         else:
+#             raise TypeError

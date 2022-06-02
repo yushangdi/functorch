@@ -89,16 +89,14 @@ from cse import modify
 #     print("a,b", a,b)
 #     return a+b
 
-
-# def f(x):
-#     a = torch.cat((x, x), dim = 1, my = 1)
-#     b = torch.cat((x, x), dim = 1)
-#     return a+b
-
+# guard againt rand
 def f(x):
-    a = torch.rand_like(x)
-    b = torch.rand_like(x)
+    a = torch.ones_like(x)
+    b = torch.ones_like(x)
+    print(a,b)
+    print()
     return a + b
+
     
 t = torch.randn(2,2)
 fx_g = make_fx(f)(t)

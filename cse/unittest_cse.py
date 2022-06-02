@@ -122,6 +122,22 @@ class ReduceTestCase(unittest.TestCase):
             return a+b
         t = torch.randn(2,2)
         check(f,t, 1)
+
+    def test_kwarg(self):
+        def f(x):
+            a = torch.ones_like(x)
+            b = torch.ones_like(x)
+            return a + b
+        t = torch.randn(2,2)
+        check(f,t, 1)
+
+    def test_rand(self):
+        def f(x):
+            a = torch.rand_like(x)
+            b = torch.rand_like(x)
+            return a + b
+        t = torch.randn(2,2)
+        check(f,t, 1)
     
 
 if __name__ == '__main__':
