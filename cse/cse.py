@@ -5,9 +5,6 @@ from functorch.compile import aot_function, print_compile
 from torch.fx.immutable_collections import immutable_list, immutable_dict
 from torch.fx.node import Node
 
-import hashlib
-import json
-
 aten = torch.ops.aten
 rand_ops = [aten.rand_like, aten.rand, aten.randint, aten.randn]
 

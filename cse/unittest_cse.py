@@ -1,13 +1,6 @@
-from re import A
-from functorch import make_fx
-import torch
-from torch._decomp import decomposition_table, get_decompositions
-import numpy
 import torch
 import torch.fx as fx
 from functorch import make_fx
-from functorch.compile import aot_function, print_compile
-from torch.fx import symbolic_trace
 
 from cse import modify
 import unittest
