@@ -91,13 +91,9 @@ from cse import modify
 
 
 def f(x):
-    a = x.sum(dim = 1)
-    b = x.sum()
-    c = x.sum()
-    d = x.sum()
-    print(a,b,c,d)
-    return a+b+c+d
-
+    a = torch.cat((x, x))
+    b = torch.cat((x, x))
+    return a+b
     
 t = torch.randn(2,2)
 fx_g = make_fx(f)(t)
@@ -107,8 +103,8 @@ new_g = fx.GraphModule({"_tensor_constant0":torch.Tensor},new_graph)
 print(fx_g.graph)
 print(new_graph)
 
-print("true g:", fx_g)
-print("our g:", new_g)
+# print("true g:", fx_g)
+# print("our g:", new_g)
 
 print("true result:", fx_g(t))
 print("our result:",new_g(t))

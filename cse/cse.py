@@ -2,6 +2,8 @@ import torch
 import torch.fx as fx
 from functorch import make_fx
 from functorch.compile import aot_function, print_compile
+from torch.fx.immutable_collections import immutable_list, immutable_dict
+from torch.fx.node import Node
 
 import hashlib
 import json
@@ -43,7 +45,11 @@ def check_args(new_args, old_args, env):
         return False
     for i in range(len(new_args)):
         if (new_args[i] != old_args[i]):
-            if not isinstance(new_args[i], torch.fx.node.Node):
+            #TODO: add check dictionary
+            if isinstance(new_args[i], list) or isinstance(new_args[i], tuple):
+                if not check_args(new_args[i], old_args[i], env):
+                    return False
+            elif not isinstance(new_args[i], Node):
                 return False
             elif (not old_args[i] in env):
                 return False
@@ -93,17 +99,35 @@ def modify(fx_g: torch.fx.graph.Graph):
             # convert to list because tuple type is not mutable
             args = list(n.args)
             kwargs = list(n.kwargs)
+            def substitute(arg_list):
+                for i in range(len(arg_list)):
+                    # change the args to their mapping in env (if exist)
+                    if isinstance(arg_list[i], torch.fx.node.Node) and arg_list[i] in env:
+                        arg_list[i] = env[arg_list[i]]
+                    # recursively check each member of a list
+                    # if the element is an immutable_list, we cast it to a mutable list, then cast back to tuple for hash
+                    # TODO: do we need to cast back?
+                    elif isinstance(arg_list[i], list) or isinstance(arg_list[i], tuple):
+                        arg_list[i] = list(arg_list[i])
+                        substitute(arg_list[i])
+                        arg_list[i] = tuple(arg_list[i])
+                    # elif isinstance(arg_list[i], list):
+                    #     substitute(arg_list[i])
+                    # TODO: add support to immutable_dict
+                    # elif isinstance(arg, dict): # torch.fx.immutable_collections.immutable_dict is a dict
+                    #     arg = tuple(sorted(arg.items()))
 
-            # change the args to their mapping in env (if exist)
-            for i in range(len(args)):
-                if isinstance(args[i], torch.fx.node.Node) and args[i] in env:
-                    args[i] = env[args[i]]
-            for i in range(len(kwargs)):
-                if isinstance(kwargs[i], torch.fx.node.Node) and kwargs[i] in env:
-                    kwargs[i] = env[kwargs[i]]
+            # for i in range(len(kwargs)):
+            #     if isinstance(kwargs[i], torch.fx.node.Node) and kwargs[i] in env:
+            #         kwargs[i] = env[kwargs[i]]
+            substitute(args)
+            substitute(kwargs)
+            args = tuple(args)
+            kwargs = tuple(kwargs)
+
             
             # hash args to a number
-            hash_arg = fx_hash([args, kwargs])
+            hash_arg = fx_hash((args, kwargs))
             hash_val = (n.target, hash_arg)
 
             # check if a node can be eliminated. check both hash and node to avoid hash collision problem

@@ -19,7 +19,7 @@ import unittest
 def check(f, t, delta):
     fx_g = make_fx(f)(t)
     new_graph = modify(fx_g.graph)
-    new_g = fx.GraphModule({},new_graph)
+    new_g = fx.GraphModule(fx_g, new_graph)
 
     # the number of nodes decrease/ or stay the same
     old_num_nodes = len(fx_g.graph.nodes)
@@ -54,6 +54,13 @@ class NoChangeTestCase(unittest.TestCase):
             return b + d
         t = torch.randn(2,2)
         check(f,t, 0)
+    
+
+    def test_empty(self):
+        def f(x):
+            pass
+        t = torch.randn(2,2)
+        check(f,t, 0)
 
 class ReduceTestCase(unittest.TestCase):
 
@@ -66,6 +73,17 @@ class ReduceTestCase(unittest.TestCase):
             return a+b+c+d
         t = torch.randn(2,2)
         check(f,t, 2)
+    
+    def test_immutable_list_multiple_entries(self):
+        def f(x):
+            a = x.sum(dim = [0,1])
+            b = x.sum(dim = [0,1])
+            c = x.sum(dim = 1)
+            d = x.sum(dim = 1)
+            return a+b+c+d
+        t = torch.randn(2,2)
+        check(f,t, 2)
+
 
     def test_simple(self):
         def f(x):
@@ -97,24 +115,14 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 3)
 
-    # TODO: change to nested immutable list
+    # TODO: change to list nested in immutable list
     def test_nested_immutable_list_type(self):
         def f(x):
-            a = x.sum(dim = 1)
-            b = x.sum(dim = 1)
-            c = x.sum()
-            d = x.sum()
-            return a+b+c+d
+            a = torch.cat((x, x))
+            b = torch.cat((x, x))
+            return a+b
         t = torch.randn(2,2)
-        check(f,t, 2)
-
-    def test_empty(self):
-        def f(x):
-            pass
-        t = torch.randn(2,2)
-        check(f,t, 0)
-
-
+        check(f,t, 1)
     
 
 if __name__ == '__main__':
