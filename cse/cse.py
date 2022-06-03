@@ -8,42 +8,60 @@ from torch.fx.node import Node
 aten = torch.ops.aten
 rand_ops = [aten.rand_like, aten.rand, aten.randint, aten.randn]
 
+
+# check if new_args and old_args are the same, with respect to env.
+# new_args and old_args are lists.
+# env is a mapping from old nodes to new nodes. If env[old_n] = new_n, then 
+# the two nodes are considered equivalent when checking
 def check_args(new_args, old_args, env):
-    if (len(new_args)!=len(old_args)):
+    if (len(new_args)!=len(old_args)): # size doesn't match
         return False
     for i in range(len(new_args)):
-        if type(new_args[i]) != type(old_args[i]):
+        old_v = old_args[i]
+        new_v = new_args[i]
+        if type(new_v) != type(old_v): # types doesn't match
             return False
-        if (new_args[i] != old_args[i]):
-            if isinstance(new_args[i], list) or isinstance(new_args[i], tuple):
-                if not check_args(new_args[i], old_args[i], env):
+        if (new_v != old_v): # continue to check if members match in env
+            if isinstance(new_v, list) or isinstance(new_v, tuple):
+                if not check_args(new_v, old_v, env):  # check list member doesn't match
                     return False
-            elif not isinstance(new_args[i], Node):
+            elif isinstance(new_v, dict):
+                if not check_kwargs(new_v, old_v, env):  # check dict member doesn't match
+                    return False
+            elif not isinstance(new_v, Node): # if is not a node, cannot match in env
                 return False
-            elif (not old_args[i] in env):
+            elif (not old_v in env): # fail to mstch in env
                 return False
-            elif new_args[i] != env[old_args[i]]:
+            elif new_v != env[old_v]:
                 return False
     return True
 
+
+# check if new_args and old_args are the same, with respect to env.
+# new_args and old_args are dictionaries
+# env is a mapping from old nodes to new nodes. If env[old_n] = new_n, then 
+# the two nodes are considered equivalent when checking
 def check_kwargs(new_args, old_args, env):
     if (len(new_args)!=len(old_args)):
         return False
-    for k,v in new_args.items():
+    for k,new_v in new_args.items():
         if not k in old_args: 
             return False
         old_v = old_args[k]
-        if type(v) != type(old_v):
+        if type(new_v) != type(old_v):
             return False
-        if (v != old_v):
-            if isinstance(v, list) or isinstance(v, tuple):
-                if not check_args(v, old_v, env):
+        if (new_v != old_v):
+            if isinstance(new_v, list) or isinstance(new_v, tuple):
+                if not check_args(new_v, old_v, env):
                     return False
-            elif not isinstance(v, Node):
+            elif isinstance(new_v, dict):
+                if not check_kwargs(new_v, old_v, env):  # check dict member doesn't match
+                    return False
+            elif not isinstance(new_v, Node):
                 return False
             elif (not old_v in env):
                 return False
-            elif v != env[old_v]:
+            elif new_v != env[old_v]:
                 return False
     return True
 
@@ -66,8 +84,9 @@ def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: 
     return True
 
 
-# substitute members of a list to its mapping in env if exists
+# resursively substitute members of a list to its mapping in env if exists
 # the subsitution is recursive for nested lists.
+# base case is a list that does not have list/dict member
 # change unhashable types such as list and dictionary to tuples.
 def substitute_list(arg_list, env):
     # change to mutable type if v is immutable
@@ -88,6 +107,7 @@ def substitute_list(arg_list, env):
 
 # substitute items of a dictionary to its mapping in env if exists
 # the subsitution is recursive for nested dictionary or list-type items
+# base case is a dict that does not have list/dict member item
 def substitute_dict(kwarg_dict, env):
     # change to mutable type if v is immutable
     if isinstance(kwarg_dict , immutable_dict):

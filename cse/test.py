@@ -68,12 +68,12 @@ from cse import modify
 
 
 # exit(0)
-def f(x):
-    a = x+1
-    b = x+a
-    a = x
-    d = x+a
-    return b + d
+# def f(x):
+#     a = x+1
+#     b = x+a
+#     a = x
+#     d = x+a
+#     return b + d
 
 # def f(x):
 #     a = x.cos()
@@ -90,12 +90,9 @@ def f(x):
 #     print("a,b", a,b)
 #     return a+b
 
-
-# def f(x):
-#     a = torch.ones_like(x)
-#     b = torch.rand_like(x)
-#     print(a,b)
-#     return a + b
+def f(x):
+    a = torch.cat((x, x))
+    b = torch.cat((x, x))
 
     
 t = torch.randn(2,2)
