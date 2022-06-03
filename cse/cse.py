@@ -9,6 +9,28 @@ aten = torch.ops.aten
 rand_ops = [aten.rand_like, aten.rand, aten.randint, aten.randn]
 
 
+# check if new_v and old_v are the same, with respect to env.
+# env is a mapping from old nodes to new nodes. If env[old_n] = new_n, then 
+# the two nodes are considered equivalent when checking
+def check_v(new_v, old_v, env):
+    if type(new_v) != type(old_v): # type doesn't match
+        return False
+    if (new_v != old_v): # not check if they match in env
+        if isinstance(new_v, list) or isinstance(new_v, tuple): # check each member of list
+            if not check_args(new_v, old_v, env):
+                return False
+        elif isinstance(new_v, dict):
+            if not check_kwargs(new_v, old_v, env):  # check each member of dict
+                return False
+        elif not isinstance(new_v, Node): # if not a node type, doesn't match in env
+            return False
+        elif (not old_v in env): # check if match in env
+            return False
+        elif new_v != env[old_v]:
+            return False
+    return True
+
+
 # check if new_args and old_args are the same, with respect to env.
 # new_args and old_args are lists.
 # env is a mapping from old nodes to new nodes. If env[old_n] = new_n, then 
@@ -19,21 +41,8 @@ def check_args(new_args, old_args, env):
     for i in range(len(new_args)):
         old_v = old_args[i]
         new_v = new_args[i]
-        if type(new_v) != type(old_v): # types doesn't match
+        if not check_v(new_v, old_v, env):
             return False
-        if (new_v != old_v): # continue to check if members match in env
-            if isinstance(new_v, list) or isinstance(new_v, tuple):
-                if not check_args(new_v, old_v, env):  # check list member doesn't match
-                    return False
-            elif isinstance(new_v, dict):
-                if not check_kwargs(new_v, old_v, env):  # check dict member doesn't match
-                    return False
-            elif not isinstance(new_v, Node): # if is not a node, cannot match in env
-                return False
-            elif (not old_v in env): # fail to mstch in env
-                return False
-            elif new_v != env[old_v]:
-                return False
     return True
 
 
@@ -48,21 +57,8 @@ def check_kwargs(new_args, old_args, env):
         if not k in old_args: 
             return False
         old_v = old_args[k]
-        if type(new_v) != type(old_v):
+        if not check_v(new_v, old_v, env):
             return False
-        if (new_v != old_v):
-            if isinstance(new_v, list) or isinstance(new_v, tuple):
-                if not check_args(new_v, old_v, env):
-                    return False
-            elif isinstance(new_v, dict):
-                if not check_kwargs(new_v, old_v, env):  # check dict member doesn't match
-                    return False
-            elif not isinstance(new_v, Node):
-                return False
-            elif (not old_v in env):
-                return False
-            elif new_v != env[old_v]:
-                return False
     return True
 
 # check if two nodes new_node and old_node are the same
@@ -77,9 +73,9 @@ def check_kwargs(new_args, old_args, env):
 def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: dict):
     if (new_node.target != old_node.target):
         return False
-    if not check_args(new_node.args, old_node.args, env):
+    if not check_v(new_node.args, old_node.args, env):
         return False
-    if not check_kwargs(new_node.kwargs, old_node.kwargs, env):
+    if not check_v(new_node.kwargs, old_node.kwargs, env):
         return False
     return True
 
