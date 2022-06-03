@@ -12,6 +12,8 @@ def check_args(new_args, old_args, env):
     if (len(new_args)!=len(old_args)):
         return False
     for i in range(len(new_args)):
+        if type(new_args[i]) != type(old_args[i]):
+            return False
         if (new_args[i] != old_args[i]):
             if isinstance(new_args[i], list) or isinstance(new_args[i], tuple):
                 if not check_args(new_args[i], old_args[i], env):
@@ -64,10 +66,49 @@ def check_same(new_node: torch.fx.node.Node, old_node: torch.fx.node.Node, env: 
     return True
 
 
+# substitute members of a list to its mapping in env if exists
+# the subsitution is recursive for nested lists.
+# change unhashable types such as list and dictionary to tuples.
+def substitute_list(arg_list, env):
+    # change to mutable type if v is immutable
+    if isinstance(arg_list , immutable_list) or isinstance(arg_list , tuple):
+        arg_list = list(arg_list)
+
+    for i in range(len(arg_list)):
+        v = arg_list[i]
+        # change the args to their mapping in env (if exist)
+        if isinstance(v, torch.fx.node.Node) and v in env:
+            arg_list[i] = env[v]
+        # recursively check each member of a list
+        elif isinstance(v, list) or isinstance(v, tuple):
+            arg_list[i] = substitute_list(v, env)
+        elif isinstance(v, dict):
+            arg_list[i] = substitute_dict(v, env)
+    return tuple(arg_list) #cast back to tuple for hash
+
+# substitute items of a dictionary to its mapping in env if exists
+# the subsitution is recursive for nested dictionary or list-type items
+def substitute_dict(kwarg_dict, env):
+    # change to mutable type if v is immutable
+    if isinstance(kwarg_dict , immutable_dict):
+        kwarg_dict = dict(kwarg_dict)
+
+    for k,v in kwarg_dict.items():
+        # change the args to their mapping in env (if exist)
+        if isinstance(v, torch.fx.node.Node) and v in env:
+            kwarg_dict[k] = env[v]
+        # recursively check each member of item
+        elif isinstance(v, list) or isinstance(v, tuple):
+            kwarg_dict[k] = substitute_list(v, env)
+        elif isinstance(v, dict):
+            kwarg_dict[k] = substitute_dict(v, env)
+    return tuple(sorted(kwarg_dict))
+
+
 # return a new graph with CSE applied to the input graph
 # env stores a mapping from node in the old graph to node in the new graph
 # The placehold, output, and get_attr nodes are copied to the new grpah without change
-# The call nodes (call_function, call_module, call_method) are hashed to check if they
+# The call nodes (call_function) are hashed to check if they
 # have an equivalent node in the graph. If so, this node will not be copied, and a mapping
 # to the duplicated node is stored in env
 def modify(fx_g: torch.fx.graph.Graph):
@@ -85,50 +126,10 @@ def modify(fx_g: torch.fx.graph.Graph):
             # print(n.args)
             # print(n.kwargs)
 
-            # convert to mutable types for substitution
-            args = list(n.args) 
-            kwargs = dict(n.kwargs)
-
-            # substitute members of a list to its mapping in env if exists
-            # the subsitution is recursive for nested lists.
-            # change unhashable types such as list and dictionary to tuples.
-            def substitute_list(arg_list):
-                for i in range(len(arg_list)):
-                    v = arg_list[i]
-                    # change the args to their mapping in env (if exist)
-                    if isinstance(v, torch.fx.node.Node) and v in env:
-                        arg_list[i] = env[v]
-                    # recursively check each member of a list
-                    # if the element is an immutable_list, we cast it to a mutable list, then cast back to tuple for hash
-                    elif isinstance(v, list) or isinstance(v, tuple):
-                        v = list(v)
-                        substitute_list(v)
-                        arg_list[i] = tuple(v)
-                    elif isinstance(v, dict):
-                        v = dict(v)
-                        substitute_dict(v)
-                        arg_list[i] = tuple(sorted(v))
-
-            # substitute items of a dictionary to its mapping in env if exists
-            # the subsitution is recursive for nested dictionary or list-type items
-            def substitute_dict(kwarg_dict):
-                for k,v in kwarg_dict.items():
-                    # change the args to their mapping in env (if exist)
-                    if isinstance(v, torch.fx.node.Node) and v in env:
-                        kwarg_dict[k] = env[v]
-                    elif isinstance(v, list) or isinstance(v, tuple):
-                        v = list(v)
-                        substitute_list(v)
-                        kwarg_dict[k] = tuple(v)
-                    elif isinstance(v, dict):
-                        v = dict(v)
-                        substitute_dict(v)
-                        kwarg_dict[k] = tuple(sorted(v.items()))
-
-            substitute_list(args)
-            substitute_dict(kwargs)
-            args = tuple(args)
-            kwargs = tuple(sorted(kwargs))
+            # substitute arg memebrs to their mapping in env if exists
+            # also change list types and dict types to tuple types for hashing 
+            args = substitute_list(n.args, env)
+            kwargs = substitute_dict(n.kwargs, env)
             
             # hash substituted args to a number
             hash_arg = hash((args, kwargs))

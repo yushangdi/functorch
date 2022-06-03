@@ -68,11 +68,12 @@ from cse import modify
 
 
 # exit(0)
-
-# def f(x):
-#     a = x.cos()
-#     b = x.cos()
-#     return a+b
+def f(x):
+    a = x+1
+    b = x+a
+    a = x
+    d = x+a
+    return b + d
 
 # def f(x):
 #     a = x.cos()
@@ -81,13 +82,13 @@ from cse import modify
 #     d = a+b
 #     return c+d
 
-def f(x):
-    g_cpu = torch.Generator()
-    g_cpu.manual_seed(2147483647)
-    a = torch.randn(4, generator = g_cpu)
-    b = torch.randn(4, generator = g_cpu)
-    print("a,b", a,b)
-    return a+b
+# def f(x):
+#     g_cpu = torch.Generator()
+#     g_cpu.manual_seed(2147483647)
+#     a = torch.randn(4, generator = g_cpu)
+#     b = torch.randn(4, generator = g_cpu)
+#     print("a,b", a,b)
+#     return a+b
 
 
 # def f(x):
