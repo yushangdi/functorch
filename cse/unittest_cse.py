@@ -20,12 +20,12 @@ def check(f, t, delta, check_val = True):
     if delta == -1:
         assert  old_num_nodes >= new_num_nodes, f"number of nodes increased {old_num_nodes}, {new_num_nodes}"
     else:
-        assert  old_num_nodes == new_num_nodes+delta, f"number of nodes not the same {old_num_nodes - delta}, {new_num_nodes}"
+        assert  old_num_nodes == new_num_nodes+delta, f"number of nodes not the same {old_num_nodes - delta}, {new_num_nodes}\n {fx_g.graph} \n {new_graph}"
     
     # a second pass should not reduce more nodes
     pass_2_graph = modify(new_graph)
     pass_2_num_nodes = len(pass_2_graph.nodes)
-    assert pass_2_num_nodes == new_num_nodes, f"second pass graph has less node {pass_2_num_nodes}, {new_num_nodes}"
+    assert pass_2_num_nodes == new_num_nodes, f"second pass graph has less node {pass_2_num_nodes}, {new_num_nodes}\n {new_graph} \n {pass_2_graph}"
 
     # check correctness
     if check_val:
@@ -98,6 +98,26 @@ class ReduceTestCase(unittest.TestCase):
             return c+d
         t = torch.randn(1)
         check(f,t, 3)
+
+    def test_two_args_default(self):
+        def f(x):
+            a = x.sum(dim = 1)
+            b = x.sum(dim = 1, keepdim = False)
+            c = x.sum(dim = 1, keepdim = False)
+            d = x.sum(dim = 1)
+            return a+b+c+d
+        t = torch.randn(2,2)
+        check(f,t, 3)
+    
+    def test_two_args(self):
+        def f(x):
+            a = x.sum(dim = 1)
+            b = x.sum(dim = 1, keepdim = True)
+            c = x.sum(dim = 1, keepdim = True)
+            d = x.sum(dim = 1)
+            return a+b+c+d
+        t = torch.randn(2,2)
+        check(f,t, 2)
 
     def test_simple_multiple_same_ops(self):
         def f(x):

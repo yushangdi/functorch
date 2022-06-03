@@ -12,89 +12,9 @@ from torch.fx import symbolic_trace
 from cse import modify
 
 
-
-# class MyInt(torch.nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.x = torch.rand(3, 4)
-
-#     def get(self):
-#         return self.x
-    
-#     def forward(self, a):
-#         return self.x + a
-
-# module = MyInt()
-
-# symbolic_traced : torch.fx.GraphModule = symbolic_trace(module)
-
-# # High-level intermediate representation (IR) - Graph representation
-# fx_g = symbolic_traced.graph
-# print(fx_g)
-# print(symbolic_traced.code)
-
-# new_graph = modify(symbolic_traced)
-# print(new_graph)
-
-
-# exit(0)
-
-
-
-# class MyModule(torch.nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.param = torch.nn.Parameter(torch.rand(3, 4))
-#         self.linear = torch.nn.Linear(4, 5)
-
-#     def forward(self, x):
-#         a = x.clamp()
-#         return self.linear(a+x + self.param).clamp(min=0.0, max=1.0)
-
-
-# module = MyModule()
-
-
-# # Symbolic tracing frontend - captures the semantics of the module
-# symbolic_traced : torch.fx.GraphModule = symbolic_trace(module)
-
-# # High-level intermediate representation (IR) - Graph representation
-# fx_g = symbolic_traced.graph
-# print(fx_g)
-# print(symbolic_traced.code)
-
-# new_graph = modify(symbolic_traced)
-# print(new_graph)
-
-
-# exit(0)
-# def f(x):
-#     a = x+1
-#     b = x+a
-#     a = x
-#     d = x+a
-#     return b + d
-
-# def f(x):
-#     a = x.cos()
-#     b = x.cos()
-#     c = a+b
-#     d = a+b
-#     return c+d
-
-# def f(x):
-#     g_cpu = torch.Generator()
-#     g_cpu.manual_seed(2147483647)
-#     a = torch.randn(4, generator = g_cpu)
-#     b = torch.randn(4, generator = g_cpu)
-#     print("a,b", a,b)
-#     return a+b
-
 def f(x):
-    a = torch.cat((x, x))
-    b = torch.cat((x, x))
+    return torch.mm(x, x).cos().cos()
 
-    
 t = torch.randn(2,2)
 fx_g = make_fx(f)(t)
 new_graph = modify(fx_g.graph)
@@ -115,6 +35,7 @@ exit(0)
 
 def f(x):
     return torch.mm(x, x).cos().cos()
+    
 t = torch.randn(3, 3, requires_grad=True)
 
 fx_g = make_fx(f)(t)
