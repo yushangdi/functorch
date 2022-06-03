@@ -56,6 +56,24 @@ class NoChangeTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 0)
 
+    def test_rand_like(self):
+        def f(x):
+            a = torch.rand_like(x)
+            b = torch.rand_like(x)
+            return a + b
+        t = torch.randn(2,2)
+        check(f,t, 0, check_val = False)
+
+    def test_rand_n(self):
+        def f(x):
+            g_cpu = torch.Generator()
+            g_cpu.manual_seed(2147483647)
+            a = torch.randn(4, generator = g_cpu)
+            b = torch.randn(4, generator = g_cpu)
+            return a+b
+        t = torch.randn(2,2)
+        check(f,t, 0)
+
 class ReduceTestCase(unittest.TestCase):
 
     def test_immutable_list_type(self):
@@ -145,23 +163,7 @@ class ReduceTestCase(unittest.TestCase):
         t = torch.randn(2,2)
         check(f,t, 1)
 
-    def test_rand_like(self):
-        def f(x):
-            a = torch.rand_like(x)
-            b = torch.rand_like(x)
-            return a + b
-        t = torch.randn(2,2)
-        check(f,t, 0, check_val = False)
 
-    def test_rand_n(self):
-        def f(x):
-            g_cpu = torch.Generator()
-            g_cpu.manual_seed(2147483647)
-            a = torch.randn(4, generator = g_cpu)
-            b = torch.randn(4, generator = g_cpu)
-            return a+b
-        t = torch.randn(2,2)
-        check(f,t, 0)
 
     
 
